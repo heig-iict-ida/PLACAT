@@ -3,3 +3,4 @@ data/*
 __pycache__/*
 *.swp
 *.pyc
+bert-model/pytorch_model.bin
