@@ -100,4 +100,9 @@ In the tab `Fulfillment` for the agent, you can specify the URL for your webhook
 3. Install the dependencies (into an virtual environment if you want) with `conda install --file requirements.txt` (you might need to add `conda-forge`'s channel: `conda config --add channels conda-forge` and then `conda config --set channel_priority strict`. You might as well need to install some packages "by hand").
 4. Run `python -m spacy download en_core_web_lg` to download the model used by the neuralcoref module to enable pronouns resolution.
 5. Execute `./run_backend.sh` to run PLACAT
-6. Either test the application on the simulator in Dialogflow, or use the `qa.py` script to test one question: `python qa.py -q Who is Roger Federer ?`
+
+## Test the application
+
+1. Use the web interface at `http://127.0.0.1:5000/chat` once the server is up (you might need to change the address and/or port)
+2. (or) use the `qa.py` script to test one question: `python qa.py -q What is penicillin ?`
+3. (or) use the simulator on Dialogflow (if you have set it up in the optional step)

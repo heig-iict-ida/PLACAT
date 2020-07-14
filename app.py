@@ -8,16 +8,18 @@ import string
 import re
 import neuralcoref
 import itertools
+import requests
 
 from os.path import join, dirname
 from dotenv import load_dotenv
 from bert import Bert
 from chatbot import Chatbot
 from controller import Controller
-from flask import Flask, request, abort, jsonify
+from flask import Flask, request, abort, jsonify, render_template
 from elasticsearch import Elasticsearch
 from elasticsearch_dsl import MultiSearch, Search
 from spacy.lang.en.stop_words import STOP_WORDS
+from datetime import datetime
 
 app = Flask(__name__)
 
@@ -94,6 +96,29 @@ def answer():
     '''
 
     return jsonify({ 'fulfillmentText': answer })
+
+
+@app.route('/chat')
+def index():
+    return render_template("index.html", datetime = datetime.now().strftime("%H:%M | %d, %B"))
+
+
+@app.route("/get")
+def get_bot_response():
+    question = request.args.get('msg')
+    
+    #question = ' '.join(userText)
+
+    url = 'http://127.0.0.1:5000/'
+    headers = { 'Content-Type': 'application/json' }
+    payload = { 'queryResult': { 'queryText': question },
+                'session': '123456' }
+    r = requests.post(url, data=json.dumps(payload), headers=headers)
+    answer = r.json()['fulfillmentText']
+    if not answer:
+        answer = 'No answer'
+
+    return answer
 
 
 def contains_query_text(json):

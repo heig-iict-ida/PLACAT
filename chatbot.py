@@ -274,7 +274,7 @@ class Chatbot:
                                         '{}-{}_{}'.format(encoder_n_layers, decoder_n_layers, hidden_size),
                                         '{}_checkpoint.tar'.format(checkpoint_iter))
             # If loading on same machine the model was trained on
-            if USE_CUDA:
+            if torch.cuda.is_available():
                 checkpoint = torch.load(loadFilename)
             else:
                 checkpoint = torch.load(loadFilename, map_location='cpu')
