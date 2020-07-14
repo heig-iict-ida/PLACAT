@@ -4,7 +4,7 @@ PLACAT is a voice-based conversational agent built using the Google Home platfor
 
 ## Installation
 
-To run this application, you first need to have an Elasticsearch's index containing Wikipedia's pages. Then you'll have to download the required models.
+To run this application, you first need to have an Elasticsearch's index containing Wikipedia's pages. Then you'll have to download the required models. This application has been tested using python=3.7.3 (it appears to break with python 3.8).
 
 ### Elasticsearch
 
