@@ -255,7 +255,10 @@ class Bert(object):
         # Load a trained model and config that you have fine-tuned
         config = BertConfig(output_config_file)
         self.model = BertForQuestionAnswering(config)
-        self.model.load_state_dict(torch.load(output_model_file))
+        if torch.cuda.is_available():
+            self.model.load_state_dict(torch.load(output_model_file))
+        else:
+            self.model.load_state_dict(torch.load(output_model_file, map_location='cpu'))
 
         self.model.to(self.device)
         print('\n\n*** QA MODULE READY [1/3] ***\n\n')
