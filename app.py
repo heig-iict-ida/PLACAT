@@ -9,6 +9,7 @@ import re
 import neuralcoref
 import itertools
 import requests
+import datetime
 
 from os.path import join, dirname
 from dotenv import load_dotenv
@@ -54,7 +55,7 @@ def answer():
     base_query = req_data['queryResult']['queryText']
     query = base_query[0].upper() + base_query[1:]
 
-    answer, query_coref_resolved, label, title, article = get_answer(query, sessionID)
+    answer, query_coref_resolved, label, title, article, answer_qa, answer_chatbot, title_qa, article = get_answer(query, sessionID)
 
     if not answer:
         answer = 'I don\'t know'
@@ -94,6 +95,21 @@ def answer():
                 print('  titleAnswerPage: ' + chat['titleAnswerPage'])
                 print('  ---')
     '''
+    
+    with open('dump/%s.json' % datetime.now().strftime("%A-%d-%b-%Y"), 'a') as f:
+        f.write('%s\n' % json.dumps({
+                'query': query,
+                'query_coref_resolved': query_coref_resolved,
+                'answer': answer,
+                'label_controller': label,
+                'answer_chatbot': answer_chatbot,
+                'answer_qa': answer_qa,
+                'title_qa': title_qa,
+                'article_qa': article
+            }))
+    
+    with open('dump/%s.txt' % datetime.now().strftime("%A-%d-%b-%Y"), 'a') as f:
+        f.write('Query: %s\nAnswer: %s\n\n' % (query, answer))
 
     return jsonify({ 'fulfillmentText': answer })
 
@@ -240,7 +256,7 @@ def get_answer(query, sessionID):
     print('  Answer chatbot: ' + answer_chatbot)
     print()
 
-    return (answer, query_coref_resolved, label, title, article)
+    return (answer, query_coref_resolved, label, title, article, answer_qa, answer_chatbot, title_qa, article)
 
 
 def get_answer_from_question(question):
