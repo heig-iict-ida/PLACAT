@@ -96,19 +96,22 @@ def answer():
                 print('  ---')
     '''
     
-    with open('dump/%s.json' % datetime.now().strftime("%A-%d-%b-%Y"), 'a') as f:
+    today = datetime.now()
+    with open('dump/%s.json' % today.strftime("%A-%d-%b-%Y"), 'a') as f:
         f.write('%s\n' % json.dumps({
                 'query': query,
-                'query_coref_resolved': query_coref_resolved,
                 'answer': answer,
                 'label_controller': label,
+                'query_coref_resolved': query_coref_resolved,
                 'answer_chatbot': answer_chatbot,
                 'answer_qa': answer_qa,
                 'title_qa': title_qa,
-                'article_qa': article
+                'article_qa': article,
+                'datetime': today.strftime("%A %d/%m/%Y, %H:%M:%S"),
+                'timestamp': datetime.timestamp(today)
             }))
     
-    with open('dump/%s.txt' % datetime.now().strftime("%A-%d-%b-%Y"), 'a') as f:
+    with open('dump/%s.txt' % today.strftime("%A-%d-%b-%Y"), 'a') as f:
         f.write('Query: %s\nAnswer: %s\n\n' % (query, answer))
 
     return jsonify({ 'fulfillmentText': answer })
@@ -116,7 +119,7 @@ def answer():
 
 @app.route('/chat')
 def index():
-    return render_template("index.html", datetime = datetime.now().strftime("%H:%M | %d, %B"))
+    return render_template("index.html")
 
 
 @app.route("/get")

@@ -2,10 +2,8 @@
 body {
 	background-color: #fcfcfc;
 }
-.placat-title {
-	margin-top: 8px;
-}
 .container{
+	margin-top: 2em;
     max-width:1200px;
 }
 .inbox_people {

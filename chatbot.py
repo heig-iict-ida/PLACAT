@@ -287,7 +287,7 @@ class Chatbot:
             embedding_sd = checkpoint['embedding']
             self.voc.__dict__ = checkpoint['voc_dict']
 
-        print('Building encoder and decoder ...')
+        #print('Building encoder and decoder ...')
         # Initialize word embeddings
         embedding = nn.Embedding(self.voc.num_words, hidden_size)
 
@@ -304,7 +304,7 @@ class Chatbot:
         # Use appropriate device
         self.encoder = encoder.to(self.device)
         self.decoder = decoder.to(self.device)
-        print('Models built and ready to go!')
+        #print('Models built and ready to go!')
 
         self.max_length = self.max_length
 
@@ -453,16 +453,16 @@ class Chatbot:
 
     # Using the functions defined above, return a populated voc object and pairs list
     def loadPrepareData(self, model_name, datafile, save_dir):
-        print("Start preparing training data ...")
+        #print("Start preparing training data ...")
         voc, pairs = self.readVocs(datafile, model_name)
-        print("Read {!s} sentence pairs".format(len(pairs)))
+        #print("Read {!s} sentence pairs".format(len(pairs)))
         #pairs = self.filterPairs(pairs)
-        print("Trimmed to {!s} sentence pairs".format(len(pairs)))
-        print("Counting words...")
+        #print("Trimmed to {!s} sentence pairs".format(len(pairs)))
+        #print("Counting words...")
         for pair in pairs:
             voc.addSentence(pair[0])
             voc.addSentence(pair[1])
-        print("Counted words:", voc.num_words)
+        #print("Counted words:", voc.num_words)
         return voc, pairs
 
     def trimRareWords(self, voc, pairs, threshold_minimum):

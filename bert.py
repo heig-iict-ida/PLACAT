@@ -261,7 +261,7 @@ class Bert(object):
             self.model.load_state_dict(torch.load(output_model_file, map_location='cpu'))
 
         self.model.to(self.device)
-        print('\n\n*** QA MODULE READY [1/3] ***\n\n')
+        print('\n*** QA MODULE READY [1/3] ***\n')
 
 
     def read_squad_examples(self, input_file, is_training, version_2_with_negative):
