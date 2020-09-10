@@ -95,7 +95,7 @@ In the tab `Fulfillment` for the agent, you can specify the URL for your webhook
 
 ### Models
 
-1. Download and unzip the folder [data](https://drive.google.com/file/d/1Jk-OXLyS1RAlUquwGLEvUpACIbws5amf/view?usp=sharing) into the root of the repository.
+1. Download and unzip the folder [data](https://drive.google.com/file/d/1BXKlMEDgsiisljNQu4hj-IHfKJGYN7m7/view?usp=sharing) into the root of the repository (The data comes from [Cornell Movie-Dialogs Corpus](http://www.cs.cornell.edu/~cristian/Cornell_Movie-Dialogs_Corpus.html), [British National Corpus](http://www.natcorp.ox.ac.uk/) and [OpenSubtitles Corpus](http://opus.nlpl.eu/OpenSubtitles-v2018.php)).
 2. Download the file [pytorch_model.bin](https://drive.google.com/file/d/1g2wl_A7qhZXZAscNgU47ism9SahrUt47/view?usp=sharing) into the `bert-model/` folder.
 3. Install the dependencies (into an virtual environment if you want) with `conda install --file requirements.txt` (you might need to add `conda-forge`'s channel: `conda config --add channels conda-forge` and then `conda config --set channel_priority strict`. You might as well need to install some packages "by hand").
 4. Run `python -m spacy download en_core_web_lg` to download the model used by the neuralcoref module to enable pronouns resolution.
