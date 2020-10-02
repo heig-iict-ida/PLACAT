@@ -96,15 +96,15 @@ curl -X DELETE "localhost:9200/enwiki/page/36897462"
 
 ### Models
 
-1. Download and unzip the folder [data](https://drive.google.com/file/d/1BXKlMEDgsiisljNQu4hj-IHfKJGYN7m7/view?usp=sharing) into the root folder of the repository.  The data comes from the [Cornell Movie-Dialogs Corpus](http://www.cs.cornell.edu/~cristian/Cornell_Movie-Dialogs_Corpus.html), the [British National Corpus](http://www.natcorp.ox.ac.uk/) and the [OpenSubtitles Corpus](http://opus.nlpl.eu/OpenSubtitles-v2018.php)).
-2. Download the file [pytorch_model.bin](https://drive.google.com/file/d/1g2wl_A7qhZXZAscNgU47ism9SahrUt47/view?usp=sharing) into the `bert-model/` folder.
+1. Download and unzip the [data](https://drive.google.com/file/d/1BXKlMEDgsiisljNQu4hj-IHfKJGYN7m7/view?usp=sharing) archive (3 GB) into the root folder of your repository.  The data comes from the [Cornell Movie-Dialogs Corpus](http://www.cs.cornell.edu/~cristian/Cornell_Movie-Dialogs_Corpus.html), the [British National Corpus](http://www.natcorp.ox.ac.uk/) and the [OpenSubtitles Corpus](http://opus.nlpl.eu/OpenSubtitles-v2018.php).
+2. Download the file [pytorch_model.bin](https://drive.google.com/file/d/1g2wl_A7qhZXZAscNgU47ism9SahrUt47/view?usp=sharing) (418MB) into the `bert-model/` folder.
 3. Install the dependent packages, for instance into a virtual environment with `conda install --file requirements.txt`.  You might need to add `conda-forge`'s channel: `conda config --add channels conda-forge` and then `conda config --set channel_priority strict`. You might as well need to install some packages manually.
 4. Run `python -m spacy download en_core_web_lg` to download the model used by the `neuralcoref` module to enable pronouns resolution.
 5. Execute `./run_backend.sh` to run PLACAT
 
 ## Test the application
 
-Use one of the following options:
+Use one of the following methods:
 1. Web interface at `http://127.0.0.1:5000/chat` once the server is up (adjust address and/or port depending on your server).
 2. `qa.py` script to test one question: `python qa.py -q What is penicillin ?`
 3. Simulator on Dialogflow, if you have set it up in the optional step.
