@@ -295,26 +295,29 @@ def get_query_from_question(question):
     nlp.tokenizer = query_tokenizer(nlp)
     question_nlp = nlp(question)
     query = ""
-    scoreTot = 0
-    #add to query other words with ^1 after each word
+    maxQueryScore = 0
+
+    #query build
     for word in question_nlp:
         if word.text != "":
             # if word is a proper noun, a named entity, superlative or comparative, add it to the query
             if word.pos_ == 'PROPN' or word.pos_ == 'ADJ' or word.pos_ == 'ADV' or word.ent_iob_ == 'B' or word.ent_iob_ == 'I':
                 query += word.text + "^" + str(os.getenv('ESMajorWordMultiplication')) + " "
-                scoreTot += os.getenv('ESMajorWordMultiplication')
+                maxQueryScore += os.getenv('ESMajorWordMultiplication')
             # if word is a noun or firstname, add it to the query
             elif word.pos_ == 'NOUN' or word.pos_ == 'PRON':
                 query += word.text + "^" + str(os.getenv('ESMediumWordMultiplication')) + " "
-                scoreTot += os.getenv('ESMediumWordMultiplication')
+                maxQueryScore += os.getenv('ESMediumWordMultiplication')
+            # add to query other words
             else:
                 query += word.text + "^" + str(os.getenv('ESLowWordMultiplication')) + " "  
-                scoreTot += os.getenv('ESLowWordMultiplication')
-    return query, question, scoreTot
+                maxQueryScore += os.getenv('ESLowWordMultiplication')
+
+    return query, question, maxQueryScore
 
 def get_documents_from_elasticsearch(question):
     question = question.lower()
-    query, question, scoreTot = get_query_from_question(question)
+    query, question, maxQueryScore = get_query_from_question(question)
 
     es = Elasticsearch([ES_HOST], port=ES_PORT)
 
@@ -323,37 +326,40 @@ def get_documents_from_elasticsearch(question):
         
     response = s.execute()
     passages = []
-    hits_title = []
+
     for hit in response:
-        hits_title.append(hit.title)
-        scorePhrases = []
-        #parcourt les phrases des hit
+        scoreSentences = []
+        
         sentences = nltk.sent_tokenize(hit.text)
+
+        # get the score of all sentences of the document
         for sentence in sentences:
-            scorePhrase = 0
+            scoreSentence = 0
+            # temporary list of words of the sentence for didn't count two times the same word
             temp_question = question.split(' ') 
-            for word in sentence.split(' '):        
+
+            for word in sentence.split(' '):    
                 if word.lower() in temp_question: 
-                    scorePhrase += int(query.split(word.lower()+'^')[1].split()[0])
+                    scoreSentence += int(query.split(word.lower()+'^')[1].split()[0])
                     #remove word from temp_question
                     temp_question.remove(word.lower())
-            scorePhrases.append(scorePhrase)
 
-        for i in range(len(scorePhrases)):
-            if i + os.getenv('PassageLength') < len(scorePhrases):
+            scoreSentences.append(scoreSentence)
+
+        # score all passages of the document
+        for i in range(len(scoreSentences)):
+            if i + os.getenv('PassageLength') < len(scoreSentences):
                 score = 0
                 for j in range(i, i + os.getenv('PassageLength')):
-                    score += scorePhrases[j]
-                if score / (scoreTot * os.getenv('PassageLength')) >= os.getenv('PassageScoreMin'):
+                    score += scoreSentences[j]
+                if score / (maxQueryScore * os.getenv('PassageLength')) >= os.getenv('PassageScoreMin'):
                     passage = ""
                     for j in range(i, i + os.getenv('PassageLength')):
                         passage += sentences[j] + " "
-                    passages.append((passage,score))
+                    passages.append((passage,score,hit.title))
     
     #sort passages by score
     passages = sorted(passages, key=lambda x: x[1], reverse=True)
-    #remove score from passages
-    passages = [x[0] for x in passages]
     #return only the first MaxESPassage passages
     passages = passages[:os.getenv('MaxESPassage')]
     return passages
@@ -364,22 +370,25 @@ def get_answer_from_question(question):
     Full query approach
     '''
     
-    passages, hits_title = get_documents_from_elasticsearch(question)
+    passages = get_documents_from_elasticsearch(question)
+
     responses = []
+
     for passage in passages:
-        responses.append(bert.get_answer(question, passage))
+        responses.append(bert.get_answer(question, passage[0]), passage)
     
     # remove response that are egual to ""
     responses = [r for r in responses if r != ""]
     if len(responses) == 0:
-        return passages,"","", hits_title, []
+        return ('','','')
+
     scores = []
     i = 0
-    while i < len(responses):
-        #print(i,len(responses))
+    while i < len(responses):        
+        response_i = " ".join([token.lemma_ for token in nlp(responses[i])])
+
         score = 0
         y = 0
-        response_i = " ".join([token.lemma_ for token in nlp(responses[i])])
         while y < len(responses):
             # compare responses with each other
             if i != y:                     
@@ -392,13 +401,13 @@ def get_answer_from_question(question):
         scores.append(score)
         i += 1
 
-
     #return response with best score
     currentBest = 0
     for i in range(len(responses)):
         if scores[i] > scores[currentBest]:
             currentBest = i
-    return responses[currentBest]
+
+    return (responses[currentBest],responses[currentBest][1][2],responses[currentBest][1][0])
 
 
 def strip_stop_words(sentence):
