@@ -10,6 +10,7 @@ import neuralcoref
 import itertools
 import requests
 import datetime
+import nltk
 
 from os.path import join, dirname
 from dotenv import load_dotenv
@@ -21,6 +22,8 @@ from elasticsearch import Elasticsearch
 from elasticsearch_dsl import MultiSearch, Search
 from spacy.lang.en.stop_words import STOP_WORDS
 from datetime import datetime
+from spacy.tokenizer import Tokenizer
+from spacy.util import compile_infix_regex
 
 app = Flask(__name__)
 
@@ -36,6 +39,7 @@ controller = Controller()
 
 nlp = spacy.load('en_core_web_lg')
 neuralcoref.add_to_pipe(nlp)
+nltk.download('punkt')
 
 ES_HOST = os.getenv('Host')
 ES_PORT = os.getenv('Port')
@@ -218,7 +222,6 @@ def resolve_pronouns(query, sessionID):
 
     return (query, '')
 
-
 def get_answer(query, sessionID):
     query_coref_resolved, conversation = resolve_pronouns(query, sessionID)
 
@@ -261,12 +264,21 @@ def get_answer(query, sessionID):
 
     return (answer, query_coref_resolved, label, title, article, answer_qa, answer_chatbot, title_qa, article)
 
+def query_tokenizer(nlp):
+    inf = list(nlp.Defaults.infixes)               # Default infixes
+    inf.remove(r"(?<=[0-9])[+\-\*^](?=[0-9-])")    # Remove the generic op between numbers or between a number and a -
+    inf = tuple(inf)                               # Convert inf to tuple
+    infixes = inf + tuple([r"(?<=[0-9])[+*^](?=[0-9-])", r"(?<=[0-9])-(?=-)"])  # Add the removed rule after subtracting (?<=[0-9])-(?=[0-9]) pattern
+    infixes = [x for x in infixes if '-|–|—|--|---|——|~' not in x] # Remove - between letters rule
+    infix_re = compile_infix_regex(infixes)
 
-def get_answer_from_question(question):
-    '''
-    Full query approach
-    '''
+    return Tokenizer(nlp.vocab, prefix_search=nlp.tokenizer.prefix_search,
+                                suffix_search=nlp.tokenizer.suffix_search,
+                                infix_finditer=infix_re.finditer,
+                                token_match=nlp.tokenizer.token_match,
+                                rules=nlp.Defaults.tokenizer_exceptions)
 
+def get_query_from_question(question):
     if os.getenv('StripStopWordsForES'):
         question = strip_stop_words(question)
 
@@ -276,39 +288,117 @@ def get_answer_from_question(question):
     if os.getenv('StripPunctuationForES'):
         question = strip_punctuation(question)
 
+    # remove double space
+    question = re.sub(r"\s+", " ", question)
+
+    # nlp tokenizer ignore "-"
+    nlp.tokenizer = query_tokenizer(nlp)
+    question_nlp = nlp(question)
+    query = ""
+    scoreTot = 0
+    #add to query other words with ^1 after each word
+    for word in question_nlp:
+        if word.text != "":
+            # if word is a proper noun, a named entity, superlative or comparative, add it to the query
+            if word.pos_ == 'PROPN' or word.pos_ == 'ADJ' or word.pos_ == 'ADV' or word.ent_iob_ == 'B' or word.ent_iob_ == 'I':
+                query += word.text + "^" + str(os.getenv('ESMajorWordMultiplication')) + " "
+                scoreTot += os.getenv('ESMajorWordMultiplication')
+            # if word is a noun or firstname, add it to the query
+            elif word.pos_ == 'NOUN' or word.pos_ == 'PRON':
+                query += word.text + "^" + str(os.getenv('ESMediumWordMultiplication')) + " "
+                scoreTot += os.getenv('ESMediumWordMultiplication')
+            else:
+                query += word.text + "^" + str(os.getenv('ESLowWordMultiplication')) + " "  
+                scoreTot += os.getenv('ESLowWordMultiplication')
+    return query, question, scoreTot
+
+def get_documents_from_elasticsearch(question):
+    question = question.lower()
+    query, question, scoreTot = get_query_from_question(question)
+
     es = Elasticsearch([ES_HOST], port=ES_PORT)
 
-    if os.getenv('SortESResultsByPopularityScore'):
-        s = Search(using=es, index=ES_INDEX).query('match', title=question).sort({"popularity_score": {"order": "desc", "mode": "max"}})
-    else:
-        s = Search(using=es, index=ES_INDEX).query('match', title=question)
-
+    s = Search(using=es, index=ES_INDEX).query('query_string', query=query,
+        fields=['title^'+str(os.getenv('ESBoostTitle')), 'opening_text^'+str(os.getenv('ESBoostOpeningText')), 'text^'+str(os.getenv('ESBoostText'))])[0:os.getenv('ESNBDOCUMENT')]
+        
     response = s.execute()
-
-    es_tries = int(os.getenv('MaxElasticsearchResults'))
+    passages = []
+    hits_title = []
     for hit in response:
-        article = ''
-        title = ''
+        hits_title.append(hit.title)
+        scorePhrases = []
+        #parcourt les phrases des hit
+        sentences = nltk.sent_tokenize(hit.text)
+        for sentence in sentences:
+            scorePhrase = 0
+            temp_question = question.split(' ') 
+            for word in sentence.split(' '):        
+                if word.lower() in temp_question: 
+                    scorePhrase += int(query.split(word.lower()+'^')[1].split()[0])
+                    #remove word from temp_question
+                    temp_question.remove(word.lower())
+            scorePhrases.append(scorePhrase)
 
-        try:
-            article = hit.opening_text
-            title = hit.title
+        for i in range(len(scorePhrases)):
+            if i + os.getenv('PassageLength') < len(scorePhrases):
+                score = 0
+                for j in range(i, i + os.getenv('PassageLength')):
+                    score += scorePhrases[j]
+                if score / (scoreTot * os.getenv('PassageLength')) >= os.getenv('PassageScoreMin'):
+                    passage = ""
+                    for j in range(i, i + os.getenv('PassageLength')):
+                        passage += sentences[j] + " "
+                    passages.append((passage,score))
+    
+    #sort passages by score
+    passages = sorted(passages, key=lambda x: x[1], reverse=True)
+    #remove score from passages
+    passages = [x[0] for x in passages]
+    #return only the first MaxESPassage passages
+    passages = passages[:os.getenv('MaxESPassage')]
+    return passages
 
-            if not article:
-                article = hit.text
-        except AttributeError: pass
 
-        if article:
-            answer = bert.get_answer(question, article)
+def get_answer_from_question(question):
+    '''
+    Full query approach
+    '''
+    
+    passages, hits_title = get_documents_from_elasticsearch(question)
+    responses = []
+    for passage in passages:
+        responses.append(bert.get_answer(question, passage))
+    
+    # remove response that are egual to ""
+    responses = [r for r in responses if r != ""]
+    if len(responses) == 0:
+        return passages,"","", hits_title, []
+    scores = []
+    i = 0
+    while i < len(responses):
+        #print(i,len(responses))
+        score = 0
+        y = 0
+        response_i = " ".join([token.lemma_ for token in nlp(responses[i])])
+        while y < len(responses):
+            # compare responses with each other
+            if i != y:                     
+                response_y = " ".join([token.lemma_ for token in nlp(responses[y])])    
+                if response_i == response_y: 
+                    score += 1
+                    responses.remove(responses[y])
+                    y -= 1     
+            y += 1
+        scores.append(score)
+        i += 1
 
-            if answer:
-                return (answer, title, article)
 
-        es_tries -= 1
-        if es_tries <= 0:
-            break
-
-    return ('', '', '')
+    #return response with best score
+    currentBest = 0
+    for i in range(len(responses)):
+        if scores[i] > scores[currentBest]:
+            currentBest = i
+    return responses[currentBest]
 
 
 def strip_stop_words(sentence):
