@@ -303,15 +303,15 @@ def get_query_from_question(question):
             # if word is a proper noun, a named entity, superlative or comparative, add it to the query
             if word.pos_ == 'PROPN' or word.pos_ == 'ADJ' or word.pos_ == 'ADV' or word.ent_iob_ == 'B' or word.ent_iob_ == 'I':
                 query += word.text + "^" + str(os.getenv('ESMajorWordMultiplication')) + " "
-                maxQueryScore += os.getenv('ESMajorWordMultiplication')
+                maxQueryScore += int(os.getenv('ESMajorWordMultiplication'))
             # if word is a noun or firstname, add it to the query
             elif word.pos_ == 'NOUN' or word.pos_ == 'PRON':
                 query += word.text + "^" + str(os.getenv('ESMediumWordMultiplication')) + " "
-                maxQueryScore += os.getenv('ESMediumWordMultiplication')
+                maxQueryScore += int(os.getenv('ESMediumWordMultiplication'))
             # add to query other words
             else:
                 query += word.text + "^" + str(os.getenv('ESLowWordMultiplication')) + " "  
-                maxQueryScore += os.getenv('ESLowWordMultiplication')
+                maxQueryScore += int(os.getenv('ESLowWordMultiplication'))
 
     return query, question, maxQueryScore
 
@@ -322,7 +322,7 @@ def get_documents_from_elasticsearch(question):
     es = Elasticsearch([ES_HOST], port=ES_PORT)
 
     s = Search(using=es, index=ES_INDEX).query('query_string', query=query,
-        fields=['title^'+str(os.getenv('ESBoostTitle')), 'opening_text^'+str(os.getenv('ESBoostOpeningText')), 'text^'+str(os.getenv('ESBoostText'))])[0:os.getenv('ESNBDOCUMENT')]
+        fields=['title^'+str(os.getenv('ESBoostTitle')), 'opening_text^'+str(os.getenv('ESBoostOpeningText')), 'text^'+str(os.getenv('ESBoostText'))])[0:int(os.getenv('ESNbDocument'))]
         
     response = s.execute()
     passages = []
@@ -348,20 +348,20 @@ def get_documents_from_elasticsearch(question):
 
         # score all passages of the document
         for i in range(len(scoreSentences)):
-            if i + os.getenv('PassageLength') < len(scoreSentences):
+            if i + int(os.getenv('PassageLength')) < len(scoreSentences):
                 score = 0
-                for j in range(i, i + os.getenv('PassageLength')):
+                for j in range(i, i + int(os.getenv('PassageLength'))):
                     score += scoreSentences[j]
-                if score / (maxQueryScore * os.getenv('PassageLength')) >= os.getenv('PassageScoreMin'):
+                if score / (maxQueryScore * int(os.getenv('PassageLength'))) >= float(os.getenv('PassageScoreMin')):
                     passage = ""
-                    for j in range(i, i + os.getenv('PassageLength')):
+                    for j in range(i, i + int(os.getenv('PassageLength'))):
                         passage += sentences[j] + " "
                     passages.append((passage,score,hit.title))
     
     #sort passages by score
     passages = sorted(passages, key=lambda x: x[1], reverse=True)
     #return only the first MaxESPassage passages
-    passages = passages[:os.getenv('MaxESPassage')]
+    passages = passages[:int(os.getenv('ESMaxPassage'))]
     return passages
 
 
@@ -370,12 +370,13 @@ def get_answer_from_question(question):
     Full query approach
     '''
     
-    passages = get_documents_from_elasticsearch(question)
-
     responses = []
-
+    #try:
+    passages = get_documents_from_elasticsearch(question)
     for passage in passages:
-        responses.append(bert.get_answer(question, passage[0]), passage)
+        responses.append((bert.get_answer(question, passage[0]), passage))
+    #except:
+    #    return ('','','')
     
     # remove response that are egual to ""
     responses = [r for r in responses if r != ""]
@@ -385,14 +386,14 @@ def get_answer_from_question(question):
     scores = []
     i = 0
     while i < len(responses):        
-        response_i = " ".join([token.lemma_ for token in nlp(responses[i])])
+        response_i = " ".join([token.lemma_ for token in nlp(responses[i][0])])
 
         score = 0
         y = 0
         while y < len(responses):
             # compare responses with each other
             if i != y:                     
-                response_y = " ".join([token.lemma_ for token in nlp(responses[y])])    
+                response_y = " ".join([token.lemma_ for token in nlp(responses[y][0])])    
                 if response_i == response_y: 
                     score += 1
                     responses.remove(responses[y])
@@ -407,7 +408,7 @@ def get_answer_from_question(question):
         if scores[i] > scores[currentBest]:
             currentBest = i
 
-    return (responses[currentBest],responses[currentBest][1][2],responses[currentBest][1][0])
+    return (responses[currentBest][0],responses[currentBest][1][2],responses[currentBest][1][0])
 
 
 def strip_stop_words(sentence):
