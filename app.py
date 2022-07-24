@@ -371,12 +371,12 @@ def get_answer_from_question(question):
     '''
     
     responses = []
-    #try:
-    passages = get_documents_from_elasticsearch(question)
-    for passage in passages:
-        responses.append((bert.get_answer(question, passage[0]), passage))
-    #except:
-    #    return ('','','')
+    try:
+        passages = get_documents_from_elasticsearch(question)
+        for passage in passages:
+            responses.append((bert.get_answer(question, passage[0]), passage))
+    except:
+        return ('','','')
     
     # remove response that are egual to ""
     responses = [r for r in responses if r != ""]
