@@ -379,7 +379,7 @@ def get_answer_from_question(question):
         return ('','','')
     
     # remove response that are egual to ""
-    responses = [r for r in responses if r != ""]
+    responses = [r for r in responses if r[0] != ""]
     if len(responses) == 0:
         return ('','','')
 
