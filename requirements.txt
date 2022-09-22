@@ -23,7 +23,7 @@ MarkupSafe==1.1.1
 murmurhash==1.0.0
 neuralcoref==4.0
 nltk==3.7
-numpy==1.16.2
+numpy==1.22.0
 plac==0.9.6
 preshed==2.0.1
 pycparser==2.19
